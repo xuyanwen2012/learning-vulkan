@@ -6,9 +6,6 @@
 
 #include "VkBootstrap.h"
 #include "file_reader.hpp"
-
-// #define VMA_IMPLEMENTATION
-// #include "vk_mem_alloc.h"
 #include "vma_usage.h"
 
 constexpr auto n = 1024;
@@ -30,14 +27,10 @@ struct ComputeData {
   VkDescriptorPool descriptor_pool;
   VkDescriptorSet descriptor_set;
 
-  // VkBuffer storageBuffer;
-  // VkDeviceMemory storageBufferMemory;
-
   VkPipelineLayout compute_pipeline_layout;
   VkPipeline compute_pipeline;
 
   VkCommandPool command_pool;
-  // std::vector<> command_buffers; // 1?
   VkCommandBuffer command_buffer;
 };
 
@@ -379,8 +372,6 @@ int main() {
   vkCheck(get_queues(init, compute_data));
   vma_initialization(init);
 
-  // std::cout << "----- " << allocatorCreateInfo.vulkanApiVersion << std::endl;
-
   VkBuffer buffer;
   VkBufferCreateInfo bufferInfo = {VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO};
   bufferInfo.size = n * sizeof(float);
@@ -413,11 +404,6 @@ int main() {
   execute(init, compute_data, buffer, allocation, h_data);
 
   vmaDestroyBuffer(allocator, buffer, allocation);
-
-  // vkCheck(create_command_buffers(init, compute_data));
-  // vkCheck(create_sync_objects(init, compute_data));
-
-  // execute();
 
   cleanup(init, compute_data);
 

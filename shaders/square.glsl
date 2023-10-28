@@ -1,0 +1,10 @@
+#version 450
+
+layout(local_size_x = 256) in;
+layout(set = 0, binding = 0, std430) buffer StorageBuffer { float data[]; }
+block;
+
+void main() {
+  uint gID = gl_GlobalInvocationID.x;
+  block.data[gID] *= 2.0f;
+}

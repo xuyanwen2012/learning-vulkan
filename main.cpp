@@ -34,7 +34,8 @@ struct ComputeData {
   VkCommandBuffer command_buffer;
 };
 
-VkShaderModule CreateShaderModule(const Init &init, const std::vector<char> &code) {
+VkShaderModule CreateShaderModule(const Init &init,
+                                  const std::vector<char> &code) {
   VkShaderModuleCreateInfo create_info{};
   create_info.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
   create_info.codeSize = code.size();
@@ -284,7 +285,8 @@ inline void VkCheck(const int result) {
 // wait for queue idle
 // read data back
 int execute(const Init &init, ComputeData &data, VkBuffer &buffer,
-            const VmaAllocation &allocation, const std::vector<float> &input_data) {
+            const VmaAllocation &allocation,
+            const std::vector<float> &input_data) {
   std::cout << "input data:\n";
   for (size_t i = 0; i < input_data.size(); ++i) {
     if (i % 64 == 0 && i != 0)

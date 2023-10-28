@@ -8,9 +8,9 @@
 #include "file_reader.hpp"
 #include "vma_usage.h"
 
-constexpr auto n = 1024;
+constexpr auto kN = 1024;
 
-constexpr uint32_t computeShaderProcessUnit() { return 256; }
+constexpr uint32_t ComputeShaderProcessUnit() { return 256; }
 
 struct Init {
   vkb::Instance instance;
@@ -34,22 +34,22 @@ struct ComputeData {
   VkCommandBuffer command_buffer;
 };
 
-VkShaderModule createShaderModule(Init &init, const std::vector<char> &code) {
+VkShaderModule CreateShaderModule(const Init &init, const std::vector<char> &code) {
   VkShaderModuleCreateInfo create_info{};
   create_info.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
   create_info.codeSize = code.size();
   create_info.pCode = reinterpret_cast<const uint32_t *>(code.data());
 
-  VkShaderModule shaderModule;
-  if (init.disp.createShaderModule(&create_info, nullptr, &shaderModule) !=
+  VkShaderModule shader_module;
+  if (init.disp.createShaderModule(&create_info, nullptr, &shader_module) !=
       VK_SUCCESS) {
     return VK_NULL_HANDLE; // failed to create shader module
   }
 
-  return shaderModule;
+  return shader_module;
 }
 
-int device_initialization(Init &init) {
+[[nodiscard]] int device_initialization(Init &init) {
   vkb::InstanceBuilder instance_builder;
   auto inst_ret = instance_builder.set_app_name("Example Vulkan Application")
                       .request_validation_layers()
@@ -72,7 +72,7 @@ int device_initialization(Init &init) {
   if (!phys_ret) {
     std::cerr << "Failed to select Vulkan Physical Device. Error: "
               << phys_ret.error().message() << "\n";
-    exit(1);
+    return 1;
   }
   std::cout << "selected GPU: " << phys_ret.value().properties.deviceName
             << '\n';
@@ -82,7 +82,7 @@ int device_initialization(Init &init) {
   if (!dev_ret) {
     std::cerr << "Failed to create Vulkan device. Error: "
               << dev_ret.error().message() << "\n";
-    exit(1);
+    return 1;
   }
 
   init.device = dev_ret.value();
@@ -91,7 +91,7 @@ int device_initialization(Init &init) {
   return 0;
 }
 
-int get_queues(Init &init, ComputeData &data) {
+[[nodiscard]] int get_queues(const Init &init, ComputeData &data) {
   auto cq = init.device.get_queue(vkb::QueueType::compute);
   if (!cq.has_value()) {
     std::cout << "failed to get graphics queue: " << cq.error().message()
@@ -102,34 +102,35 @@ int get_queues(Init &init, ComputeData &data) {
   return 0;
 }
 
-void vma_initialization(Init &init) {
-  VmaVulkanFunctions vulkanFunctions = {};
-  vulkanFunctions.vkGetInstanceProcAddr = &vkGetInstanceProcAddr;
-  vulkanFunctions.vkGetDeviceProcAddr = &vkGetDeviceProcAddr;
+void vma_initialization(const Init &init) {
+  VmaVulkanFunctions vulkan_functions = {};
+  vulkan_functions.vkGetInstanceProcAddr = &vkGetInstanceProcAddr;
+  vulkan_functions.vkGetDeviceProcAddr = &vkGetDeviceProcAddr;
 
-  VmaAllocatorCreateInfo allocatorCreateInfo = {};
+  VmaAllocatorCreateInfo allocator_create_info = {};
   // allocatorCreateInfo.vulkanApiVersion = VK_API_VERSION_1_3;
-  allocatorCreateInfo.physicalDevice = init.device.physical_device;
-  allocatorCreateInfo.device = init.device.device;
-  allocatorCreateInfo.instance = init.instance.instance;
-  allocatorCreateInfo.pVulkanFunctions = &vulkanFunctions;
-  vmaCreateAllocator(&allocatorCreateInfo, &allocator);
+  allocator_create_info.physicalDevice = init.device.physical_device;
+  allocator_create_info.device = init.device.device;
+  allocator_create_info.instance = init.instance.instance;
+  allocator_create_info.pVulkanFunctions = &vulkan_functions;
+  vmaCreateAllocator(&allocator_create_info, &allocator);
 }
 
-int create_descriptor_set_layout_v2(Init &init, ComputeData &data) {
+[[nodiscard]] int create_descriptor_set_layout_v2(const Init &init,
+                                                  ComputeData &data) {
   std::array<VkDescriptorSetLayoutBinding, 1> binding;
   binding[0].binding = 0;
   binding[0].descriptorCount = 1;
   binding[0].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
   binding[0].stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
 
-  VkDescriptorSetLayoutCreateInfo createInfo{};
-  createInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-  createInfo.bindingCount = 1;
-  createInfo.pBindings = binding.data();
+  VkDescriptorSetLayoutCreateInfo create_info{};
+  create_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+  create_info.bindingCount = 1;
+  create_info.pBindings = binding.data();
 
   if (init.disp.createDescriptorSetLayout(
-          &createInfo, nullptr, &data.compute_descriptor_set_layout) !=
+          &create_info, nullptr, &data.compute_descriptor_set_layout) !=
       VK_SUCCESS) {
     std::cout << "failed to create descriptor set layout\n";
     return -1;
@@ -138,7 +139,7 @@ int create_descriptor_set_layout_v2(Init &init, ComputeData &data) {
   return 0;
 }
 
-int create_command_pool(Init &init, ComputeData &data) {
+[[nodiscard]] int create_command_pool(const Init &init, ComputeData &data) {
   VkCommandPoolCreateInfo pool_info = {};
   pool_info.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
   pool_info.queueFamilyIndex =
@@ -152,10 +153,10 @@ int create_command_pool(Init &init, ComputeData &data) {
   return 0;
 }
 
-int create_compute_pipeline(Init &init, ComputeData &data) {
+[[nodiscard]] int create_compute_pipeline(const Init &init, ComputeData &data) {
   // Load & Create Shader Modules (1/3)
-  auto compute_shader_code = readFile("shaders/square.spv");
-  auto compute_module = createShaderModule(init, compute_shader_code);
+  const auto compute_shader_code = readFile("shaders/square.spv");
+  const auto compute_module = CreateShaderModule(init, compute_shader_code);
 
   if (compute_module == VK_NULL_HANDLE) {
     std::cout << "failed to create shader module\n";
@@ -203,7 +204,7 @@ int create_compute_pipeline(Init &init, ComputeData &data) {
   return 0;
 }
 
-int create_descriptor_pool(Init &init, ComputeData &data) {
+[[nodiscard]] int create_descriptor_pool(const Init &init, ComputeData &data) {
   VkDescriptorPoolSize pool_size;
   pool_size.descriptorCount = 1;
   pool_size.type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
@@ -222,7 +223,8 @@ int create_descriptor_pool(Init &init, ComputeData &data) {
   return 0;
 }
 
-int create_descriptor_set(Init &init, ComputeData &data, VkBuffer &buffer) {
+[[nodiscard]] int create_descriptor_set(const Init &init, ComputeData &data,
+                                        const VkBuffer &buffer) {
   VkDescriptorSetAllocateInfo alloc_info = {};
   alloc_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
   alloc_info.descriptorPool = data.descriptor_pool;
@@ -235,10 +237,10 @@ int create_descriptor_set(Init &init, ComputeData &data, VkBuffer &buffer) {
     return -1;
   }
 
-  VkDescriptorBufferInfo bufferInfo;
-  bufferInfo.buffer = buffer;
-  bufferInfo.offset = 0;
-  bufferInfo.range = n * sizeof(float);
+  VkDescriptorBufferInfo buffer_info;
+  buffer_info.buffer = buffer;
+  buffer_info.offset = 0;
+  buffer_info.range = kN * sizeof(float);
 
   VkWriteDescriptorSet write = {};
   write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
@@ -247,14 +249,14 @@ int create_descriptor_set(Init &init, ComputeData &data, VkBuffer &buffer) {
   write.dstBinding = 0;
   write.dstArrayElement = 0;
   write.dstSet = data.descriptor_set;
-  write.pBufferInfo = &bufferInfo;
+  write.pBufferInfo = &buffer_info;
 
   init.disp.updateDescriptorSets(1, &write, 0, nullptr);
 
   return 0;
 }
 
-void cleanup(Init &init, ComputeData &data) {
+void cleanup(const Init &init, const ComputeData &data) {
   vmaDestroyAllocator(allocator);
 
   init.disp.destroyDescriptorPool(data.descriptor_pool, nullptr);
@@ -266,11 +268,11 @@ void cleanup(Init &init, ComputeData &data) {
   init.disp.destroyPipeline(data.compute_pipeline, nullptr);
   init.disp.destroyPipelineLayout(data.compute_pipeline_layout, nullptr);
 
-  vkb::destroy_device(init.device);
-  vkb::destroy_instance(init.instance);
+  destroy_device(init.device);
+  destroy_instance(init.instance);
 }
 
-inline void vkCheck(int result) {
+inline void VkCheck(const int result) {
   if (result != 0) {
     exit(1);
   }
@@ -281,8 +283,8 @@ inline void vkCheck(int result) {
 // submit
 // wait for queue idle
 // read data back
-int execute(Init &init, ComputeData &data, VkBuffer &buffer,
-            VmaAllocation &allocation, const std::vector<float> &input_data) {
+int execute(const Init &init, ComputeData &data, VkBuffer &buffer,
+            const VmaAllocation &allocation, const std::vector<float> &input_data) {
   std::cout << "input data:\n";
   for (size_t i = 0; i < input_data.size(); ++i) {
     if (i % 64 == 0 && i != 0)
@@ -316,7 +318,7 @@ int execute(Init &init, ComputeData &data, VkBuffer &buffer,
       data.compute_pipeline_layout, 0, 1, &data.descriptor_set, 0, nullptr);
 
   const auto group_count_x =
-      static_cast<uint32_t>(input_data.size() / computeShaderProcessUnit());
+      static_cast<uint32_t>(input_data.size() / ComputeShaderProcessUnit());
   init.disp.cmdDispatch(data.command_buffer, group_count_x, 1, 1);
 
   init.disp.endCommandBuffer(data.command_buffer);
@@ -339,11 +341,11 @@ int execute(Init &init, ComputeData &data, VkBuffer &buffer,
   if (vkQueueWaitIdle(data.compute_queue) != VK_SUCCESS)
     throw std::runtime_error("failed to wait queue idle!");
 
-  std::vector<float> output_data(n);
+  std::vector<float> output_data(kN);
 
   void *mapped_data;
   vmaMapMemory(allocator, allocation, &mapped_data);
-  memcpy(output_data.data(), mapped_data, n * sizeof(float));
+  memcpy(output_data.data(), mapped_data, kN * sizeof(float));
   vmaUnmapMemory(allocator, allocation);
 
   // -------
@@ -361,45 +363,45 @@ int execute(Init &init, ComputeData &data, VkBuffer &buffer,
 int main() {
   // ------------------ DATA ------------------
 
-  std::vector<float> h_data(n, 1.0f);
+  const std::vector h_data(kN, 1.0f);
 
   // ------------------ INITIALIZATION ------------------
   Init init;
   ComputeData compute_data;
 
   // setting up vulkan
-  vkCheck(device_initialization(init));
-  vkCheck(get_queues(init, compute_data));
+  VkCheck(device_initialization(init));
+  VkCheck(get_queues(init, compute_data));
   vma_initialization(init);
 
   VkBuffer buffer;
-  VkBufferCreateInfo bufferInfo = {VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO};
-  bufferInfo.size = n * sizeof(float);
-  bufferInfo.usage = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
-  bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-  bufferInfo.queueFamilyIndexCount = 0;
-  bufferInfo.pQueueFamilyIndices = nullptr;
+  VkBufferCreateInfo buffer_info = {VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO};
+  buffer_info.size = kN * sizeof(float);
+  buffer_info.usage = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
+  buffer_info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+  buffer_info.queueFamilyIndexCount = 0;
+  buffer_info.pQueueFamilyIndices = nullptr;
 
-  VmaAllocationCreateInfo allocInfo = {};
-  allocInfo.usage = VMA_MEMORY_USAGE_CPU_TO_GPU;
-  allocInfo.requiredFlags = VMA_ALLOCATION_CREATE_MAPPED_BIT;
+  VmaAllocationCreateInfo alloc_info = {};
+  alloc_info.usage = VMA_MEMORY_USAGE_CPU_TO_GPU;
+  alloc_info.requiredFlags = VMA_ALLOCATION_CREATE_MAPPED_BIT;
 
   VmaAllocation allocation;
-  vmaCreateBuffer(allocator, &bufferInfo, &allocInfo, &buffer, &allocation,
+  vmaCreateBuffer(allocator, &buffer_info, &alloc_info, &buffer, &allocation,
                   nullptr);
 
-  void *mappedMemory = nullptr;
-  vmaMapMemory(allocator, allocation, &mappedMemory);
-  memcpy(mappedMemory, h_data.data(), n * sizeof(float));
+  void *mapped_memory = nullptr;
+  vmaMapMemory(allocator, allocation, &mapped_memory);
+  memcpy(mapped_memory, h_data.data(), kN * sizeof(float));
   vmaUnmapMemory(allocator, allocation);
 
-  vkCheck(create_descriptor_set_layout_v2(init, compute_data));
-  vkCheck(create_compute_pipeline(init, compute_data));
+  VkCheck(create_descriptor_set_layout_v2(init, compute_data));
+  VkCheck(create_compute_pipeline(init, compute_data));
 
-  vkCheck(create_descriptor_pool(init, compute_data));
-  vkCheck(create_descriptor_set(init, compute_data, buffer));
+  VkCheck(create_descriptor_pool(init, compute_data));
+  VkCheck(create_descriptor_set(init, compute_data, buffer));
 
-  vkCheck(create_command_pool(init, compute_data));
+  VkCheck(create_command_pool(init, compute_data));
 
   execute(init, compute_data, buffer, allocation, h_data);
 

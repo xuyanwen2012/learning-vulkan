@@ -45,7 +45,7 @@ struct ComputeData {
   VkShaderModule shader_module;
   if (init.disp.createShaderModule(&create_info, nullptr, &shader_module) !=
       VK_SUCCESS) {
-    return VK_NULL_HANDLE; // failed to create shader module
+    return VK_NULL_HANDLE;
   }
 
   return shader_module;
@@ -71,10 +71,11 @@ struct ComputeData {
           .set_minimum_version(1, 1) // require a vulkan 1.1 capable device
           .require_separate_compute_queue()
           .select();
+
   if (!phys_ret) {
     std::cerr << "Failed to select Vulkan Physical Device. Error: "
               << phys_ret.error().message() << "\n";
-    return 1;
+    return -1;
   }
   std::cout << "selected GPU: " << phys_ret.value().properties.deviceName
             << '\n';
@@ -84,12 +85,11 @@ struct ComputeData {
   if (!dev_ret) {
     std::cerr << "Failed to create Vulkan device. Error: "
               << dev_ret.error().message() << "\n";
-    return 1;
+    return -1;
   }
 
   init.device = dev_ret.value();
   init.disp = init.device.make_table();
-
   return 0;
 }
 
@@ -315,7 +315,7 @@ int execute(const Init &init, ComputeData &data, VkBuffer &buffer,
   if (init.disp.allocateCommandBuffers(&alloc_info, &data.command_buffer) !=
       VK_SUCCESS) {
     std::cout << "failed to allocate command buffers\n";
-    return 1;
+    return -1;
   }
 
   // ------- RECORD COMMAND BUFFER --------
@@ -349,7 +349,7 @@ int execute(const Init &init, ComputeData &data, VkBuffer &buffer,
   if (vkQueueSubmit(data.compute_queue, 1, &submit_info, VK_NULL_HANDLE) !=
       VK_SUCCESS) {
     std::cout << "failed to submit queue\n";
-    return 1;
+    return -1;
   }
 
   // wait the calculation to finish
